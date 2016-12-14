@@ -1,8 +1,13 @@
 var dyna4j = (function (a) {
 
+  // debug
   var debug = false;
-  function toggle_debug(){debug = !debug;}
-  function log(){
+
+  function toggle_debug() {
+    debug = !debug;
+  }
+
+  function log() {
     if (debug && console && console.log) {
       console.log(arguments);
     }
@@ -12,7 +17,10 @@ var dyna4j = (function (a) {
   var _submit = a.Submit;
 
   a.Submit = function (ctnr_id, form_id, event, action) {
-    var target = event_target(action);
+    if (event.type !== 'click') {
+      return;
+    }
+    var target = event.srcElement || event.target;
     var approved = exec_callbacks_onclick(target);
     if (!approved) {
       return false;
@@ -23,23 +31,19 @@ var dyna4j = (function (a) {
     _submit(ctnr_id, form_id, event, action);
   };
 
-  function revert(){
-      a.Submit = _submit;
+  function revert() {
+    a.Submit = _submit;
   }
 
   // helpers
-  function event_target(action) {
-    for (var key in action.parameters) {
-      if (key.indexOf(':') > 0) {
-        return document.getElementById(key);
-      }
-    }
-  }
-
   function keep_tail_args(args, arr) {
     for (var i = 1; i < args.length; i++) {
       arr.push(args[i]);
     }
+  }
+
+  function classname(t) {
+    return t.getAttribute('className') || t.getAttribute('class') || '';
   }
 
   function lazy_collection() {
@@ -55,7 +59,7 @@ var dyna4j = (function (a) {
 
     function match(target) {
       var matched_callbacks = [];
-      var actual_classes = target.className.split(/\s+/);
+      var actual_classes = classname(target).split(/\s+/);
       for (var class_name in callbacks) {
         if (actual_classes.indexOf(class_name) > 0) {
           matched_callbacks = matched_callbacks.concat(callbacks[class_name]);
@@ -86,7 +90,7 @@ var dyna4j = (function (a) {
   function exec_callbacks_onclick(target) {
     var callbacks = callback_onclick.match(target);
     for (var i = 0; i < callbacks.length; i++) {
-      var return_value = callbacks[i].call(target);
+      var return_value = callbacks[i].call(a, target);
       if (return_value === false) {
         return false;
       }
