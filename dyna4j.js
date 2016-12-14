@@ -2,11 +2,16 @@ var dyna4j = (function (a) {
 
   var debug = false;
   function toggle_debug(){debug = !debug;}
+  function log(){
+    if (debug && console && console.log) {
+      console.log(arguments);
+    }
+  }
 
   // substitute
   var _submit = a.Submit;
 
-  a.Submit = function (root_id, form_id, event, action) {
+  a.Submit = function (ctnr_id, form_id, event, action) {
     var target = event_target(action);
     var approved = exec_callbacks_onclick(target);
     if (!approved) {
@@ -14,11 +19,13 @@ var dyna4j = (function (a) {
     }
     action.oncomplete = wanted_callbacks_oncomplete(target);
     append_parameters(action.parameters, target);
-    if(debug && console && console.log){
-        console.log(action);
-    }
-    _submit(root_id, form_id, event, action);
+    log(action);
+    _submit(ctnr_id, form_id, event, action);
   };
+
+  function revert(){
+      a.Submit = _submit;
+  }
 
   // helpers
   function event_target(action) {
@@ -29,42 +36,55 @@ var dyna4j = (function (a) {
     }
   }
 
-  function callbacks_for(target, cb_collection) {
-    var callbacks = [];
-    var actual_classes = target.className.split(/\s+/);
-    for (var class_name in cb_collection) {
-      if (actual_classes.indexOf(class_name) > 0) {
-        callbacks = callbacks.concat(cb_collection[class_name]);
-      }
+  function keep_tail_args(args, arr) {
+    for (var i = 1; i < args.length; i++) {
+      arr.push(args[i]);
     }
-    return callbacks;
   }
-  
-  function keep_tail_args(args, arr){
-      for(var i=1; i<args.length; i++){
-          arr.push(args[i]);
+
+  function lazy_collection() {
+    var callbacks = {};
+
+    function add(args) {
+      var class_name = args[0];
+      if (callbacks[class_name] === undefined) {
+        callbacks[class_name] = [];
       }
+      keep_tail_args(args, callbacks[class_name]);
+    }
+
+    function match(target) {
+      var matched_callbacks = [];
+      var actual_classes = target.className.split(/\s+/);
+      for (var class_name in callbacks) {
+        if (actual_classes.indexOf(class_name) > 0) {
+          matched_callbacks = matched_callbacks.concat(callbacks[class_name]);
+        }
+      }
+      return matched_callbacks;
+    }
+
+    return {
+      add: add,
+      match: match
+    };
   }
 
   // callbacks for onclick/oncomplete
-  var callback_onclick = {};
-  function onclick(class_name) {
-    if (callback_onclick[class_name] === undefined) {
-      callback_onclick[class_name] = [];
-    }
-    keep_tail_args(arguments, callback_onclick[class_name]);
+  var callback_onclick = lazy_collection();
+
+  function onclick() {
+    callback_onclick.add(arguments);
   };
 
-  var callback_oncomplete = {};
-  function oncomplete(class_name) {
-    if (callback_oncomplete[class_name] === undefined) {
-      callback_oncomplete[class_name] = [];
-    }
-    keep_tail_args(arguments, callback_oncomplete[class_name]);
+  var callback_oncomplete = lazy_collection();
+
+  function oncomplete() {
+    callback_oncomplete.add(arguments);
   };
 
   function exec_callbacks_onclick(target) {
-    var callbacks = callbacks_for(target, callback_onclick);
+    var callbacks = callback_onclick.match(target);
     for (var i = 0; i < callbacks.length; i++) {
       var return_value = callbacks[i].call(target);
       if (return_value === false) {
@@ -74,9 +94,9 @@ var dyna4j = (function (a) {
     return true;
   }
 
-  function wanted_callbacks_oncomplete(target) {    
+  function wanted_callbacks_oncomplete(target) {
     return function (request, event, data) {
-      var callbacks = callbacks_for(target, callback_oncomplete);
+      var callbacks = callback_oncomplete.match(target);
       for (var i = 0; i < callbacks.length; i++) {
         callbacks[i].call(target, data);
       }
@@ -85,19 +105,18 @@ var dyna4j = (function (a) {
 
   // dynamic arguments
   // extractor function should return something like {schedule_code: 'S101'}
-  var parameters_extractors = {}
-  function parameters(class_name){
-    if (parameters_extractors[class_name] === undefined) {
-      parameters_extractors[class_name] = [];
-    }
-    keep_tail_args(arguments, parameters_extractors[class_name]);
+  var parameters_extractors = lazy_collection();
+
+  function parameters() {
+    parameters_extractors.add(arguments);
   }
-  
-  function append_parameters(para, target){
-    var extractors = callbacks_for(target, parameters_extractors);
+
+  function append_parameters(para, target) {
+    var extractors = parameters_extractors.match(target);
+    log(extractors);
     for (var i = 0; i < extractors.length; i++) {
       var return_value = extractors[i].call(null, target);
-      for(var para_name in return_value){
+      for (var para_name in return_value) {
         para[para_name] = return_value[para_name];
       }
     }
@@ -108,7 +127,8 @@ var dyna4j = (function (a) {
     onclick: onclick,
     oncomplete: oncomplete,
     parameters: parameters,
-    toggle_debug: toggle_debug
+    toggle_debug: toggle_debug,
+    revert: revert
   };
 
 })(A4J.AJAX);
