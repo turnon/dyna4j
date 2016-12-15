@@ -16,7 +16,15 @@ var dyna4j = (function (a) {
   // substitute
   var _submit = a.Submit;
 
-  a.Submit = function (ctnr_id, form_id, event, action) {
+  a.Submit = function () {
+    var event, action;
+    if(arguments.length === 4){
+      event = arguments[2];
+      action = arguments[3];
+    }else{
+      event = arguments[1];
+      action = arguments[2];
+    }
     if (event.type !== 'click') {
       return;
     }
@@ -28,7 +36,7 @@ var dyna4j = (function (a) {
     action.oncomplete = wanted_callbacks_oncomplete(target);
     append_parameters(action.parameters, target);
     log(action);
-    _submit(ctnr_id, form_id, event, action);
+    _submit.apply(a, arguments);
   };
 
   function revert() {
@@ -72,6 +80,19 @@ var dyna4j = (function (a) {
       add: add,
       match: match
     };
+  }
+
+  function one_array() {
+    var arr = [];
+    for (var i = 0; i < arguments.length; i++) {
+      var arg = arguments[i];
+      if (arg.length) {
+        arr = arr.concat(arg);
+      } else {
+        arr.push(arg);
+      }
+    }
+    return arr;
   }
 
   // callbacks for onclick/oncomplete
@@ -126,13 +147,28 @@ var dyna4j = (function (a) {
     }
   }
 
+  // facade
+  var individual_interfaces = ['onclick', 'parameters', 'oncomplete'];
+
+  function submit_facade(class_name, options) {
+    for(var i = 0; i < individual_interfaces.length; i++) {
+      var intf = individual_interfaces[i];
+      if (options[intf]) {
+        m[intf].apply(null, one_array(class_name, options[intf]));
+      }
+    }
+  }
+
   // module to return
-  return {
+  var m = {
     onclick: onclick,
     oncomplete: oncomplete,
     parameters: parameters,
+    submit: submit_facade,
     toggle_debug: toggle_debug,
     revert: revert
   };
+
+  return m;
 
 })(A4J.AJAX);
