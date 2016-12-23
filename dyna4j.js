@@ -8,9 +8,8 @@ var dyna4j = (function (a) {
   }
 
   function log() {
-    if (debug && console && console.log) {
+    if (debug && console && console.log)
       console.log(arguments);
-    }
   }
 
   // substitute
@@ -18,21 +17,19 @@ var dyna4j = (function (a) {
 
   a.Submit = function () {
     var event, action;
-    if(arguments.length === 4){
+    if (arguments.length === 4) {
       event = arguments[2];
       action = arguments[3];
-    }else{
+    } else {
       event = arguments[1];
       action = arguments[2];
     }
-    if (event.type !== 'click') {
+    if (event.type !== 'click')
       return;
-    }
     var target = event.srcElement || event.target;
     var approved = exec_callbacks_onclick(target);
-    if (!approved) {
+    if (!approved)
       return false;
-    }
     action.oncomplete = wanted_callbacks_oncomplete(target);
     append_parameters(action.parameters, target);
     log(action);
@@ -44,10 +41,10 @@ var dyna4j = (function (a) {
   }
 
   // helpers
+
   function keep_tail_args(args, arr) {
-    for (var i = 1; i < args.length; i++) {
+    for (var i = 1; i < args.length; i++)
       arr.push(args[i]);
-    }
   }
 
   function classname(t) {
@@ -59,20 +56,17 @@ var dyna4j = (function (a) {
 
     function add(args) {
       var class_name = args[0];
-      if (callbacks[class_name] === undefined) {
+      if (callbacks[class_name] === undefined)
         callbacks[class_name] = [];
-      }
       keep_tail_args(args, callbacks[class_name]);
     }
 
     function match(target) {
       var matched_callbacks = [];
       var actual_classes = classname(target).split(/\s+/);
-      for (var class_name in callbacks) {
-        if (actual_classes.indexOf(class_name) > 0) {
+      for (var class_name in callbacks)
+        if (actual_classes.indexOf(class_name) > 0)
           matched_callbacks = matched_callbacks.concat(callbacks[class_name]);
-        }
-      }
       return matched_callbacks;
     }
 
@@ -95,6 +89,15 @@ var dyna4j = (function (a) {
     return arr;
   }
 
+  function merge(tar, src, inject) {
+    var rt = tar;
+    if (inject === false)
+      rt = merge({}, tar);
+    for (var key in src)
+      rt[key] = src[key];
+    return rt;
+  }
+
   // callbacks for onclick/oncomplete
   var callback_onclick = lazy_collection();
 
@@ -112,9 +115,8 @@ var dyna4j = (function (a) {
     var callbacks = callback_onclick.match(target);
     for (var i = 0; i < callbacks.length; i++) {
       var return_value = callbacks[i].call(a, target);
-      if (return_value === false) {
+      if (return_value === false)
         return false;
-      }
     }
     return true;
   }
@@ -122,9 +124,8 @@ var dyna4j = (function (a) {
   function wanted_callbacks_oncomplete(target) {
     return function (request, event, data) {
       var callbacks = callback_oncomplete.match(target);
-      for (var i = 0; i < callbacks.length; i++) {
+      for (var i = 0; i < callbacks.length; i++)
         callbacks[i].call(target, data);
-      }
     };
   }
 
@@ -141,34 +142,27 @@ var dyna4j = (function (a) {
     log(extractors);
     for (var i = 0; i < extractors.length; i++) {
       var return_value = extractors[i].call(null, target);
-      for (var para_name in return_value) {
-        para[para_name] = return_value[para_name];
-      }
+      merge(para, return_value);
     }
   }
 
   // facade
-  var individual_interfaces = ['onclick', 'parameters', 'oncomplete'];
-
-  function submit_facade(class_name, options) {
-    for(var i = 0; i < individual_interfaces.length; i++) {
-      var intf = individual_interfaces[i];
-      if (options[intf]) {
-        m[intf].apply(null, one_array(class_name, options[intf]));
-      }
-    }
-  }
-
-  // module to return
-  var m = {
+  var basic = {
     onclick: onclick,
     oncomplete: oncomplete,
-    parameters: parameters,
+    parameters: parameters
+  };
+
+  function submit_facade(class_name, options) {
+    for (var intf in basic)
+      if (options[intf])
+        basic[intf].apply(null, one_array(class_name, options[intf]));
+  }
+
+  return merge(basic, {
     submit: submit_facade,
     toggle_debug: toggle_debug,
     revert: revert
-  };
-
-  return m;
+  }, false);
 
 })(A4J.AJAX);
